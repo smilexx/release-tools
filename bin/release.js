@@ -6,6 +6,7 @@ const packageJson = require("../package.json");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const { getBranch, isCleanGuard } = require("../utils/git");
+const log = require("fancy-log");
 
 program.version(packageJson.version);
 
@@ -19,10 +20,9 @@ program
     "из какой ветки будет собираться релиз",
     "develop"
   )
-  .option(
+  .requiredOption(
     "-s, --script <script>",
-    "какой скрипт запускать для релиза из package.json",
-    "up"
+    "какой скрипт запускать для релиза из package.json"
   )
   .parse();
 
@@ -32,14 +32,18 @@ const main = async () => {
   const options = program.opts();
 
   await isCleanGuard(git);
+  log.info("Проверка репозитория заверешена");
 
   const fromBranch = await getBranch(git, options.from);
   const toBranch = await getBranch(git, options.to);
+  log.info("Проверка веток заверешена");
 
+  log.info("Получение коммитов");
   const { all } = await git.log({
     from: toBranch.commit,
     to: fromBranch.commit,
   });
+  log.info(`Получение коммитов заверешно. Всего коммитов ${all.length}`);
 
   const { commit } = await inquirer.prompt([
     {
@@ -58,17 +62,37 @@ const main = async () => {
     },
   ]);
 
+  log.info(`Выбран коммит: ${commit}`);
+
   await git.checkout(options.from);
+  log.info(`Выполнен переход на ветку ${options.from}`);
+
   await git.reset(["--hard", commit]);
+  log.info(`Выполнен сброс на коммит ${commit}`);
+
   await git.checkout(options.to);
+  log.info(`Выполнен переход на ветку ${options.to}`);
+
+  log.info(`Перенос коммитов из ветки ${options.from} в ветку ${options.to}`);
   await git.rebase([options.from]);
 
+  log.info("Запуск скрипта релиза");
   await exec(`npm run ${options.script}`);
+  log.info("Скрипт релиза выполнен");
+
+  log.info(`Отправка коммитов ветки ${options.to}`);
   await git.push(["--follow-tags"]);
 
   await git.checkout(options.from);
+  log.info(`Выполнен переход на ветку ${options.from}`);
+
+  log.info(`Получение коммитов ветки ${options.from}`);
   await git.pull();
+
+  log.info(`Перенос коммитов из ветки ${options.to} в ветку ${options.from}`);
   await git.rebase([options.to]);
+
+  log.info("Релиз выполнен успешно");
 };
 
 main().then(() => {

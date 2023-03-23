@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "commander": "^10.0.0",
+    "fancy-log": "^2.0.0",
     "inquirer": "^8.2.5",
     "simple-git": "^3.17.0"
   }

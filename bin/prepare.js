@@ -3,8 +3,8 @@ const { program } = require("commander");
 const simpleGit = require("simple-git");
 const inquirer = require("inquirer");
 const packageJson = require("../package.json");
-const util = require("util");
 const { getBranch, isCleanGuard } = require("../utils/git");
+const log = require("fancy-log");
 
 program.version(packageJson.version);
 
@@ -42,8 +42,20 @@ const main = async () => {
           value: "webstorm -w",
         },
         {
-          name: "Nano",
-          value: "nano",
+          name: "PhpStorm",
+          value: "phpstorm -w",
+        },
+        {
+          name: "TextEdit (macOS)",
+          value: "open -W -n",
+        },
+        {
+          name: "nano",
+          value: "nano -w",
+        },
+        {
+          name: "Default",
+          value: undefined,
         },
       ],
     },
@@ -51,38 +63,32 @@ const main = async () => {
 
   const git = simpleGit({
     baseDir: process.cwd(),
-    config: [`core.editor=${editor}`, `sequence.editor=${editor}`],
+    config: editor
+      ? [(`core.editor=${editor}`, `sequence.editor=${editor}`)]
+      : [],
   });
   const options = program.opts();
 
   await isCleanGuard(git);
+  log.info("Проверка репозитория заверешена");
 
   const fromBranch = await getBranch(git, options.from);
   const toBranch = await getBranch(git, options.to);
+  log.info("Проверка веток заверешена");
 
   await git.checkout(fromBranch.name);
+  log.info(`Перешли на ветку ${fromBranch.name}`);
 
   try {
     await git.rebase(["--interactive", toBranch.commit]);
+    log.info("Ребейс успешно завершен (Возможно необходимо решить конфликты)");
   } catch (e) {
-    console.info(e.message);
+    log.error(e.message);
   }
 
-  const { push } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "forcePush",
-      message:
-        "Сделать форс пуш в репозиторий? \n Необходимо проверить коммиты, история коммитов будет ПЕРЕЗАПИСАНА!)",
-      default: false,
-    },
-  ]);
-
-  if (push) {
-    await git.push(["--force"]);
-  }
+  log.info("Подготовка успешно выполнена");
 };
 
-main().then(() => {});
-
-//-c "core.editor=code --wait --reuse-window"
+main().then(() => {
+  process.exit(1);
+});
