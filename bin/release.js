@@ -66,7 +66,7 @@ const main = async () => {
   await exec(`npm run ${options.script}`);
   await git.push(["--follow-tags"]);
 
-  await git.checkout(from);
+  await git.checkout(options.from);
   await git.pull();
   await git.rebase([options.to]);
 };
